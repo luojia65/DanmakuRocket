@@ -36,6 +36,22 @@
 <body>
 <script>
 var ws = new WebSocket("ws://live.luojia.cc:1103/");
+function textChange() {
+  let value = document.getElementById("msg").value;
+  let btn = document.getElementById("btn");
+  if(value == "") {
+    btn.textContent = "请先输入弹幕";
+    btn.disabled = true;
+  } else {
+    btn.textContent = "点我发送！";
+    btn.disabled = false;
+  }
+}
+function sendButtonClick() {
+  let value = document.getElementById("msg").value;
+  ws.send(value);
+  alert("发送成功！\n你发送的弹幕消息是:"+value)
+}
 </script>
 <div class="header">
   <div class="am-g">
@@ -48,11 +64,11 @@ var ws = new WebSocket("ws://live.luojia.cc:1103/");
     <div>
         <label>输入您要发送的弹幕：</label>
         <br>
-        <textarea class="" rows="5" style="width:100%" placeholder="666666!"></textarea>    
+        <textarea id="msg" oninput="textChange()" rows="5" style="width:100%" placeholder="666666!"></textarea>    
     </div>
     <br>
     <div>
-        <input type="submit" name="" value="点我发送！" class="am-btn am-btn-primary am-btn-sm am-fl">
+        <button id="btn" disabled=true onclick="sendButtonClick()" class="am-btn am-btn-primary am-btn-sm am-fl">请先输入弹幕</button>
     </div>
     <br>
     <hr>
