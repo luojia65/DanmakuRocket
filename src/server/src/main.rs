@@ -83,8 +83,18 @@ fn main() -> ws::Result<()> {
     println!("{} DanmuRocket已启动在 {:?}！", hms_string(), addr.clone());
     // 2. displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
-    loop {
 
+    // 3. 读取控制台
+    loop {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        match input {
+            "q" => {    
+                println!("{} 正在手动停止DanmuRocket...", hms_string());
+                std::process::exit(0);
+            },
+            _ => {}
+        }
     }
 
 }

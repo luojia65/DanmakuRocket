@@ -34,6 +34,9 @@
   </style>
 </head>
 <body>
+<script>
+var ws = new WebSocket("ws://live.luojia.cc:1103/");
+</script>
 <div class="header">
   <div class="am-g">
     <h1>发送弹幕</h1>
@@ -43,16 +46,17 @@
 <div class="am-g">
   <div class="am-u-lg-6 am-u-md-8 am-u-sm-centered">
     <div>
-        <label for="email">输入您要发送的弹幕：</label>
+        <label>输入您要发送的弹幕：</label>
         <br>
-        <textarea class="" rows="5" id="user-intro" placeholder="666666!"></textarea>    </div>
+        <textarea class="" rows="5" style="width:100%" placeholder="666666!"></textarea>    
+    </div>
     <br>
     <div>
         <input type="submit" name="" value="点我发送！" class="am-btn am-btn-primary am-btn-sm am-fl">
     </div>
     <br>
     <hr>
-    <p>©2018 华中科技大学 计算机科学与技术学院 2018级13班. Licenced under WTFPL.</p>
+    <p style="color:gray;">©2018 华中科技大学计算机科学与技术学院2018级13班. Licensed under WTFPL. All rights reserved.</p>
   </div>
 </div>
 </body>
