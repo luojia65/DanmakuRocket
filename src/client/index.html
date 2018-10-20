@@ -33,26 +33,33 @@
     }
   </style>
 </head>
-<body>
+
 <script>
-var ws = new WebSocket("ws://live.luojia.cc:1103/");
-function textChange() {
-  let value = document.getElementById("msg").value;
-  let btn = document.getElementById("btn");
-  if(value == "") {
-    btn.textContent = "请先输入弹幕";
-    btn.disabled = true;
-  } else {
-    btn.textContent = "点我发送！";
-    btn.disabled = false;
+  var ws = new WebSocket("ws://live.luojia.cc:1103/");
+  function bodyLoad() {
+    let arr = ["666666!", "233333", "XXX加油！", "XXX太帅了！"];
+    var item = arr[Math.floor(Math.random()*arr.length)];
+    document.getElementById("msg").placeholder = item;
   }
-}
-function sendButtonClick() {
-  let value = document.getElementById("msg").value;
-  ws.send(value);
-  alert("发送成功！\n你发送的弹幕消息是:"+value)
-}
+  function textChange() {
+    let value = document.getElementById("msg").value;
+    let btn = document.getElementById("btn");
+    if(value == "") {
+      btn.textContent = "请先输入弹幕";
+      btn.disabled = true;
+    } else {
+      btn.textContent = "点我发送！";
+      btn.disabled = false;
+    }
+  }
+  function sendButtonClick() {
+    let value = document.getElementById("msg").value;
+    ws.send(value);
+    alert("发送成功！\n你发送的弹幕消息是:"+value)
+  }
 </script>
+
+<body onload="bodyLoad()">
 <div class="header">
   <div class="am-g">
     <h1>发送弹幕</h1>
