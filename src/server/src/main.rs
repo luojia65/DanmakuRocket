@@ -25,15 +25,15 @@ impl ws::Handler for MyHandler {
         Ok(())
     }
 
-    fn on_close(&mut self, _code: ws::CloseCode, _reason: &str) {
-        println!("{} 客户端 {:?} 断开了连接！", hms_string(), self.client_addr);
+    fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
+        println!("{} 客户端 {:?} 断开了连接！代码：{:?}", hms_string(), self.client_addr, code);
     }
 
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> { 
 	    if let ws::Message::Text(text) = msg {
             if let Ok(ref mut mutex) = self.queue.try_lock() {
                 mutex.push(text.clone());
-                println!("{} 客户端 {:?} 发送了信息：{}", hms_string(), self.client_addr, text.clone());
+                println!("{} {:?} 发送了信息：{}", hms_string(), self.client_addr, text.clone());
                 self.sender.send(ws::Message::Text(format!("You sent: {}", text)))
             } else {
                 self.sender.send(ws::Message::Text(format!("Failed to send : {}", text)))
@@ -45,20 +45,42 @@ impl ws::Handler for MyHandler {
 
 }
 
-fn main() {
+struct MyFactory {
+    queue: Arc<Mutex<Vec<String>>>,
+}
+
+impl MyFactory {
+    fn new(queue: Arc<Mutex<Vec<String>>>) -> Self {
+        MyFactory {
+            queue
+        }
+    }
+}
+
+impl ws::Factory for MyFactory {
+
+    type Handler = MyHandler;
+
+    fn connection_made(&mut self, sender: ws::Sender) -> MyHandler {
+        MyHandler {
+            sender,
+            client_addr: None,
+            queue: self.queue.clone()
+        }
+    }
+}
+
+fn main() -> ws::Result<()> {
     let msg_queue = Arc::new(Mutex::new(vec![String::new(); 0]));
     // 1. 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
     let addr = "0.0.0.0:1103";
-    ws::listen(addr, |out| {
-        let msg_queue = msg_queue.clone();
-        MyHandler {
-            sender: out,
-            client_addr: None,
-            queue: msg_queue
-        }
-    }).unwrap();
-    println!("Opened receive websocket at {:?}", addr);
+    std::thread::spawn(move || {
+        let factory = MyFactory::new(msg_queue);
+        let _socket = ws::WebSocket::new(factory).unwrap()
+            .listen(addr.clone()).unwrap();
+    });
+    println!("{} DanmuRocket已启动在 {:?}！", hms_string(), addr.clone());
     // 2. displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
     loop {
