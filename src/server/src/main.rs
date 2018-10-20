@@ -88,7 +88,7 @@ fn main() -> ws::Result<()> {
     loop {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
-        match input {
+        match input.as_str() {
             "q" => {    
                 println!("{} 正在手动停止DanmuRocket...", hms_string());
                 std::process::exit(0);
