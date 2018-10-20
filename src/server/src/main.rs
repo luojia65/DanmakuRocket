@@ -9,24 +9,24 @@ fn hms_string() -> String {
     format!("[{}]", now.format("%H:%M:%S"))
 }
 
-struct MyFactory {
+struct InputFactory {
     queue: Arc<Mutex<Vec<String>>>,
 }
 
-impl MyFactory {
+impl InputFactory {
     fn new(queue: Arc<Mutex<Vec<String>>>) -> Self {
-        MyFactory {
+        InputFactory {
             queue
         }
     }
 }
 
-impl ws::Factory for MyFactory {
+impl ws::Factory for InputFactory {
 
-    type Handler = MyHandler;
+    type Handler = InputHandler;
 
-    fn connection_made(&mut self, sender: ws::Sender) -> MyHandler {
-        MyHandler {
+    fn connection_made(&mut self, sender: ws::Sender) -> InputHandler {
+        InputHandler {
             sender,
             client_addr: None,
             queue: self.queue.clone()
@@ -34,13 +34,13 @@ impl ws::Factory for MyFactory {
     }
 }
 
-struct MyHandler {
+struct InputHandler {
     sender: ws::Sender,
     client_addr: Option<String>,
     queue: Arc<Mutex<Vec<String>>>,
 }
 
-impl ws::Handler for MyHandler {
+impl ws::Handler for InputHandler {
 
     fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
         if let Some(client_addr) = shake.remote_addr()? {
@@ -71,23 +71,74 @@ impl ws::Handler for MyHandler {
 	    	self.sender.close(ws::CloseCode::Unsupported)
 	    }
     }
+}
+
+struct OutputFactory {
+    queue: Arc<Mutex<Vec<String>>>,
+    handlers: Arc<Mutex<Vec<OutputHandler>>>,
+}
+
+impl OutputFactory {
+    fn new(queue: Arc<Mutex<Vec<String>>>) -> Self {
+        OutputFactory {
+            queue,
+            handlers: Arc::new(Mutex::new(Vec::new()))
+        }
+    }
+
+    fn broadcast_message(&self) {
+        let mut queue = self.queue.lock().unwrap();
+        while let Some(msg) = queue.pop() {
+            for handler in &*self.handlers.lock().unwrap() {
+                handler.sender.send(ws::Message::Text(msg.clone())).unwrap()
+            }
+        }
+    }
+}
+
+impl ws::Factory for OutputFactory {
+
+    type Handler = OutputHandler;
+
+    fn connection_made(&mut self, sender: ws::Sender) -> OutputHandler {
+        let ans = OutputHandler { sender };
+        self.handlers.lock().unwrap().push(ans.clone());
+        ans
+    }
+}
+
+#[derive(Clone)]
+struct OutputHandler {
+    sender: ws::Sender,
+}
+
+impl ws::Handler for OutputHandler {
 
 }
 
 fn main() -> ws::Result<()> {
     let msg_queue = Arc::new(Mutex::new(vec![String::new(); 0]));
-    // 1. 从客户端输入弹幕
+    let msg_queue_1 = msg_queue.clone();
+    // 1. displayer使用的websocket服务器
+    // 将弹幕数据推送到displayer前端
+    let addr = "0.0.0.0:11030";
+    let mut output_socket = None;
+    std::thread::spawn(move || {
+        let factory = OutputFactory::new(msg_queue);
+        output_socket = Some(Arc::new(Mutex::new(ws::WebSocket::new(factory).unwrap()
+            .listen(addr.clone()).unwrap())));
+    });
+
+    println!("{} DanmuRocket显示模块已启动在 {}！", hms_string(), addr.clone());
+    // 2. 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
     let addr = "0.0.0.0:1103";
     std::thread::spawn(move || {
-        let factory = MyFactory::new(msg_queue);
-        let _socket = ws::WebSocket::new(factory).unwrap()
+        let factory = InputFactory::new(msg_queue_1);
+        ws::WebSocket::new(factory).unwrap()
             .listen(addr.clone()).unwrap();
     });
-    println!("{} DanmuRocket已启动在 {}！", hms_string(), addr.clone());
-    // 2. displayer使用的websocket服务器
-    // 将弹幕数据推送到displayer前端
-
+    println!("{} DanmuRocket客户端监听已启动在 {}！", hms_string(), addr.clone());
     // 3. 读取控制台
     loop {
         let mut input = String::new();
