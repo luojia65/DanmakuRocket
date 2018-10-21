@@ -1,7 +1,7 @@
 extern crate ws;
 extern crate chrono;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 
 fn hms_string() -> String {
     use chrono::prelude::*;
@@ -10,14 +10,12 @@ fn hms_string() -> String {
 }
 
 struct InputFactory {
-    queue: Arc<Mutex<Vec<String>>>,
+    tx: mpsc::Sender<String>
 }
 
 impl InputFactory {
-    fn new(queue: Arc<Mutex<Vec<String>>>) -> Self {
-        InputFactory {
-            queue
-        }
+    fn new(tx: mpsc::Sender<String>) -> Self {
+        InputFactory { tx }
     }
 }
 
@@ -29,7 +27,7 @@ impl ws::Factory for InputFactory {
         InputHandler {
             sender,
             client_addr: None,
-            queue: self.queue.clone()
+            tx: self.tx.clone()
         }
     }
 }
@@ -37,7 +35,7 @@ impl ws::Factory for InputFactory {
 struct InputHandler {
     sender: ws::Sender,
     client_addr: Option<String>,
-    queue: Arc<Mutex<Vec<String>>>,
+    tx: mpsc::Sender<String>,
 }
 
 impl ws::Handler for InputHandler {
@@ -58,15 +56,11 @@ impl ws::Handler for InputHandler {
 
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> { 
 	    if let ws::Message::Text(text) = msg {
-            if let Ok(ref mut mutex) = self.queue.try_lock() {
-                mutex.push(text.clone());
-                if let Some(client_addr) = self.client_addr.clone() {
-                    println!("{} {} 发送了信息：{}", hms_string(), client_addr, text.clone());
-                }
-                self.sender.send(ws::Message::Text(format!("You sent: {}", text)))
-            } else {
-                self.sender.send(ws::Message::Text(format!("Failed to send : {}", text)))
+            self.tx.send(text.clone()).unwrap();
+            if let Some(client_addr) = self.client_addr.clone() {
+                println!("{} {} 发送了信息：{}", hms_string(), client_addr, text.clone());
             }
+            self.sender.send(ws::Message::Text(format!("You sent: {}", text)))
 	    } else {
 	    	self.sender.close(ws::CloseCode::Unsupported)
 	    }
@@ -74,25 +68,23 @@ impl ws::Handler for InputHandler {
 }
 
 struct OutputFactory {
-    queue: Arc<Mutex<Vec<String>>>,
     handlers: Arc<Mutex<Vec<OutputHandler>>>,
 }
 
 impl OutputFactory {
-    fn new(queue: Arc<Mutex<Vec<String>>>) -> Self {
-        OutputFactory {
-            queue,
+    fn new(rx: mpsc::Receiver<String>) -> Self {
+        let ans = OutputFactory {
             handlers: Arc::new(Mutex::new(Vec::new()))
-        }
-    }
-
-    fn broadcast_message(&self) {
-        let mut queue = self.queue.lock().unwrap();
-        while let Some(msg) = queue.pop() {
-            for handler in &*self.handlers.lock().unwrap() {
-                handler.sender.send(ws::Message::Text(msg.clone())).unwrap()
+        };
+        let handlers = ans.handlers.clone();
+        std::thread::spawn(move || {
+            while let Ok(msg) = rx.recv() {
+                for handler in &*handlers.lock().unwrap() {
+                    handler.sender.send(ws::Message::Text(msg.clone())).unwrap();
+                }
             }
-        }
+        });
+        ans
     }
 }
 
@@ -112,19 +104,16 @@ struct OutputHandler {
     sender: ws::Sender,
 }
 
-impl ws::Handler for OutputHandler {
-
-}
+impl ws::Handler for OutputHandler {}
 
 fn main() -> ws::Result<()> {
-    let msg_queue = Arc::new(Mutex::new(vec![String::new(); 0]));
-    let msg_queue_1 = msg_queue.clone();
+    let (tx, rx) = mpsc::channel();
     // 1. displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
     let addr = "0.0.0.0:11030";
     let mut output_socket = None;
     std::thread::spawn(move || {
-        let factory = OutputFactory::new(msg_queue);
+        let factory = OutputFactory::new(rx);
         output_socket = Some(Arc::new(Mutex::new(ws::WebSocket::new(factory).unwrap()
             .listen(addr.clone()).unwrap())));
     });
@@ -134,7 +123,7 @@ fn main() -> ws::Result<()> {
     // 参会者提交弹幕后，前端通过websocket推送到此处
     let addr = "0.0.0.0:1103";
     std::thread::spawn(move || {
-        let factory = InputFactory::new(msg_queue_1);
+        let factory = InputFactory::new(tx);
         ws::WebSocket::new(factory).unwrap()
             .listen(addr.clone()).unwrap();
     });
