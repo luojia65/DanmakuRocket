@@ -55,7 +55,8 @@
   function sendButtonClick() {
     let value = document.getElementById("msg").value;
     ws.send(value);
-    alert("发送成功！\n你发送的弹幕消息是:"+value)
+    alert("发送成功！\n你发送的弹幕消息是:"+value);
+    document.getElementById("msg").value = "";
   }
 </script>
 

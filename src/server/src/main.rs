@@ -93,7 +93,7 @@ impl ws::Factory for OutputFactory {
     type Handler = OutputHandler;
 
     fn connection_made(&mut self, sender: ws::Sender) -> OutputHandler {
-        let ans = OutputHandler { sender };
+        let ans = OutputHandler { sender, client_addr: None };
         self.handlers.lock().unwrap().push(ans.clone());
         ans
     }
@@ -102,22 +102,35 @@ impl ws::Factory for OutputFactory {
 #[derive(Clone)]
 struct OutputHandler {
     sender: ws::Sender,
+    client_addr: Option<String>,
 }
 
-impl ws::Handler for OutputHandler {}
+impl ws::Handler for OutputHandler {
+    fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
+        if let Some(client_addr) = shake.remote_addr()? {
+            self.client_addr = Some(client_addr.clone());
+            println!("{} 新的直播页 {} 已连接到服务器！", hms_string(), client_addr);
+        }
+        Ok(())
+    }
+
+    fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
+        if let Some(client_addr) = self.client_addr.clone() {
+            println!("{} 直播页 {} 断开了连接！代码：{:?}", hms_string(), client_addr, code);
+        }
+    }
+}
 
 fn main() -> ws::Result<()> {
     let (tx, rx) = mpsc::channel();
     // 1. displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
     let addr = "0.0.0.0:11030";
-    let mut output_socket = None;
     std::thread::spawn(move || {
         let factory = OutputFactory::new(rx);
-        output_socket = Some(Arc::new(Mutex::new(ws::WebSocket::new(factory).unwrap()
-            .listen(addr.clone()).unwrap())));
+        ws::WebSocket::new(factory).unwrap()
+            .listen(addr.clone()).unwrap();
     });
-
     println!("{} DanmuRocket显示模块已启动在 {}！", hms_string(), addr.clone());
     // 2. 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
