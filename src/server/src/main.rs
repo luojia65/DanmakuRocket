@@ -121,13 +121,14 @@ impl ws::Handler for OutputHandler {
     }
 }
 
-fn anti_spam(rx_in: mpsc::Receiver<String>) -> (mpsc::Sender<String>, mpsc::Sender<String>) {
+// 把一个rx分为两部分：正常的和不正常的
+fn anti_spam(rx_in: mpsc::Receiver<String>) -> (mpsc::Receiver<String>, mpsc::Receiver<String>) {
     unimplemented!()
 }
 
 fn main() -> ws::Result<()> {
-    // 输入 -> tx_in -> rx_in -> AntiSpam -> tx_ok -> rx_ok -> 输出
-    //                                    -> tx_err -> rx_err -> 输出
+    // 输入 -> tx_in -> rx_in -> AntiSpam -> rx_ok -> 输出
+    //                                    -> rx_err -> 输出
     let (tx_in, rx_in) = mpsc::channel();
     // 1. 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
