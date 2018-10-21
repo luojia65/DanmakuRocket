@@ -7,21 +7,20 @@
 <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 <script type="text/javascript" src="jquery.barrager.min.js"></script>
 <link rel="stylesheet" type="text/css" href="barrager.css">
-<body id="bg" style="background:gray">
+<body style="background-color: gray">
     <canvas id="cv" width="100%" height="100%"></canvas>
 </body>
 <script>
 let ws = new WebSocket("ws://live.luojia.cc:11030/");
 ws.onmessage = function(evt) {
     console.log(evt);
-    let bg = document.getElementById("bg");
     let item={
-        info:'弹幕文字信息', //文字 
+        info:evt.data, //文字 
         close:true, //显示关闭按钮 
         color:'#fff', //颜色,默认白色 
         old_ie_color:'#000000', //ie低版兼容色,不能与网页背景相同,默认黑色 
     }
-    bg.barrager(item);
+    $('body').barrager(item);
 }; 
 </script>
 </html>
