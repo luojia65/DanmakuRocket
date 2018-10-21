@@ -14,8 +14,9 @@
 let ws = new WebSocket("ws://live.luojia.cc:11030/");
 ws.onmessage = function(evt) {
     console.log(evt);
+    let data = evt.data;
     let item={
-        info:evt.data, //文字 
+        info:data, //文字 
         close:true, //显示关闭按钮 
         color:'#fff', //颜色,默认白色 
         old_ie_color:'#000000', //ie低版兼容色,不能与网页背景相同,默认黑色 
