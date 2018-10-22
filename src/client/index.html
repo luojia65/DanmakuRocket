@@ -36,6 +36,20 @@
 
 <script>
   var ws = new WebSocket("ws://live.luojia.cc:1103/");
+  ws.onmessage = function(evt) {
+    let regexSuccess = new RegExp("You sent: (.*)");
+    let regexError = new RegExp("Failed to send: (.*)");
+    let data = evt.data;
+    let success = regexSuccess.exec(data);
+    let error = regexError.exec(data);
+    if(success != null){
+      alert('发送成功！\n你发送的消息是：'+success);
+    } 
+    if(error != null){
+      alert('发送失败！请检查你的输入并重试！\n你发送的消息是：'+error);
+    } 
+    textChange();
+  }
   function bodyLoad() {
     let arr = ["666666!", "233333", "XXX加油！", "XXX太帅了！"];
     var item = arr[Math.floor(Math.random()*arr.length)];
@@ -55,7 +69,8 @@
   function sendButtonClick() {
     let value = document.getElementById("msg").value;
     ws.send(value);
-    alert("发送成功！\n你发送的弹幕消息是:"+value);
+    btn.textContent = "正在发送中...";
+    btn.disabled = true;
     document.getElementById("msg").value = "";
   }
 </script>
