@@ -11,9 +11,16 @@ fn hms_string() -> String {
 }
 
 fn judge_msg(msg: String) -> bool {
-    if msg.contains("javascript") {
+    let mut msg = msg;
+    msg = msg.replace(" ", "");
+    if
+        msg.contains("script") || 
+        msg.contains("&#115;&#99;&#114;&#105;&#112;&#116;") ||
+        msg.contains("&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;") ||
+        msg.contains("\\x73\\x63\\x72\\x69\\x70\\x74") 
+    {
         return false;
-    }
+    } 
     true
 }
 

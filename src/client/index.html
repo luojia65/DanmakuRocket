@@ -43,10 +43,10 @@
     let success = regexSuccess.exec(data);
     let error = regexError.exec(data);
     if(success != null){
-      alert('发送成功！\n你发送的消息是：'+success);
+      alert('发送成功！\n你发送的消息是：'+success[1]);
     } 
     if(error != null){
-      alert('发送失败！请检查你的输入并重试！\n你发送的消息是：'+error);
+      alert('发送失败！请检查你的输入并重试！\n你发送的消息是：'+error[1]);
     } 
     textChange();
   }
