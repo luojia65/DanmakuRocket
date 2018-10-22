@@ -10,6 +10,13 @@ fn hms_string() -> String {
     format!("[{}]", now.format("%H:%M:%S"))
 }
 
+fn judge_msg(msg: String) -> bool {
+    if msg.contains("javascript") {
+        return false;
+    }
+    true
+}
+
 struct InputFactory {
     tx: mpsc::Sender<String>
 }
@@ -57,14 +64,22 @@ impl ws::Handler for InputHandler {
 
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> { 
 	    if let ws::Message::Text(text) = msg {
-            self.tx.send(text.clone()).unwrap();
-            if let Some(client_addr) = self.client_addr.clone() {
-                println!("{} {} 发送了信息：{}", hms_string(), client_addr, text.clone());
+            if judge_msg(text.clone()) {
+                self.tx.send(text.clone()).unwrap();
+                self.sender.send(ws::Message::Text(format!("You sent: {}", text.clone())))?;
+                if let Some(client_addr) = self.client_addr.clone() {
+                    println!("{} {} 发送了信息：{}", hms_string(), client_addr, text.clone());
+                }
+            } else {
+                self.sender.send(ws::Message::Text(format!("Failed to send: {}", text.clone())))?;
+                if let Some(client_addr) = self.client_addr.clone() {
+                    println!("{} {} 发送的信息已被拦截：{}", hms_string(), client_addr, text.clone());
+                }
             }
-            self.sender.send(ws::Message::Text(format!("You sent: {}", text)))
 	    } else {
-	    	self.sender.close(ws::CloseCode::Unsupported)
+	    	self.sender.close(ws::CloseCode::Unsupported)?;
 	    }
+        Ok(())
     }
 }
 
