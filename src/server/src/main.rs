@@ -5,29 +5,31 @@ extern crate env_logger;
 
 use log::LevelFilter;
 use env_logger::{Builder, Target};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, Mutex, mpsc, atomic::{AtomicIsize, Ordering}};
 use std::thread;
 
-fn judge_msg(mut msg: String) -> bool {
-    msg = msg.replace(" ", "");
-    if
-        msg.contains("script") || 
-        msg.contains("&#115;&#99;&#114;&#105;&#112;&#116;") ||
-        msg.contains("&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;") ||
-        msg.contains("\\x73\\x63\\x72\\x69\\x70\\x74") 
-    {
-        return false;
-    } 
-    true
+struct Service {
+    
+}
+
+impl Service {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+enum StatusSignal {
+    ModifyOnlineUserCount(isize)
 }
 
 struct InputFactory {
-    tx: mpsc::Sender<String>
+    tx_msg: mpsc::Sender<String>,
+    tx_status: mpsc::Sender<StatusSignal>,
 }
 
 impl InputFactory {
-    fn new(tx: mpsc::Sender<String>) -> Self {
-        InputFactory { tx }
+    fn new(tx_msg: mpsc::Sender<String>, tx_status: mpsc::Sender<StatusSignal>) -> Self {
+        InputFactory { tx_msg, tx_status }
     }
 }
 
@@ -35,19 +37,21 @@ impl ws::Factory for InputFactory {
 
     type Handler = InputHandler;
 
-    fn connection_made(&mut self, sender: ws::Sender) -> InputHandler {
+    fn connection_made(&mut self, ws_sender: ws::Sender) -> InputHandler {
         InputHandler {
-            sender,
+            ws_sender,
             client_addr: None,
-            tx: self.tx.clone()
+            tx_msg: self.tx_msg.clone(),
+            tx_status: self.tx_status.clone(),
         }
     }
 }
 
 struct InputHandler {
-    sender: ws::Sender,
+    ws_sender: ws::Sender,
     client_addr: Option<String>,
-    tx: mpsc::Sender<String>,
+    tx_msg: mpsc::Sender<String>,
+    tx_status: mpsc::Sender<StatusSignal>,
 }
 
 impl ws::Handler for InputHandler {
@@ -55,12 +59,14 @@ impl ws::Handler for InputHandler {
     fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
         if let Some(client_addr) = shake.remote_addr()? {
             self.client_addr = Some(client_addr.clone());
+            self.tx_status.send(StatusSignal::ModifyOnlineUserCount(1)).unwrap();
             info!("新的客户端 {:?} 已连接到服务器！", client_addr);
         }
         Ok(())
     }
 
     fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
+        self.tx_status.send(StatusSignal::ModifyOnlineUserCount(-1)).unwrap();
         if let Some(client_addr) = self.client_addr.clone() {
             info!("客户端 {} 断开了连接！代码：{:?}", client_addr, code);
         }
@@ -69,19 +75,19 @@ impl ws::Handler for InputHandler {
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> { 
 	    if let ws::Message::Text(text) = msg {
             if judge_msg(text.clone()) {
-                self.tx.send(text.clone()).unwrap();
-                self.sender.send(ws::Message::Text(format!("You sent: {}", text.clone())))?;
+                self.tx_msg.send(text.clone()).unwrap();
+                self.ws_sender.send(ws::Message::Text(format!("You sent: {}", text.clone())))?;
                 if let Some(client_addr) = self.client_addr.as_ref() {
                     info!("{} 发送了信息：{}", client_addr, text.clone());
                 }
             } else {
-                self.sender.send(ws::Message::Text(format!("Failed to send: {}", text.clone())))?;
+                self.ws_sender.send(ws::Message::Text(format!("Failed to send: {}", text.clone())))?;
                 if let Some(client_addr) = self.client_addr.as_ref() {
                     info!("{} 发送的信息已被拦截：{}", client_addr, text.clone());
                 }
             }
 	    } else {
-	    	self.sender.close(ws::CloseCode::Unsupported)?;
+	    	self.ws_sender.close(ws::CloseCode::Unsupported)?;
 	    }
         Ok(())
     }
@@ -100,7 +106,7 @@ impl OutputFactory {
         thread::spawn(move || {
             while let Ok(msg) = rx.recv() {
                 for handler in &*handlers.lock().unwrap() {
-                    handler.sender.send(ws::Message::Text(msg.clone())).unwrap();
+                    handler.ws_sender.send(ws::Message::Text(msg.clone())).unwrap();
                 }
             }
         });
@@ -112,8 +118,8 @@ impl ws::Factory for OutputFactory {
 
     type Handler = OutputHandler;
 
-    fn connection_made(&mut self, sender: ws::Sender) -> OutputHandler {
-        let ans = OutputHandler { sender, client_addr: None };
+    fn connection_made(&mut self, ws_sender: ws::Sender) -> OutputHandler {
+        let ans = OutputHandler { ws_sender, client_addr: None };
         self.handlers.lock().unwrap().push(ans.clone());
         ans
     }
@@ -121,7 +127,7 @@ impl ws::Factory for OutputFactory {
 
 #[derive(Clone)]
 struct OutputHandler {
-    sender: ws::Sender,
+    ws_sender: ws::Sender,
     client_addr: Option<String>,
 }
 
@@ -141,6 +147,62 @@ impl ws::Handler for OutputHandler {
     }
 }
 
+struct BackendFactory {
+    handlers: Arc<Mutex<Vec<BackendHandler>>>,
+}
+
+impl BackendFactory {
+    fn new(status_rx: mpsc::Receiver<StatusSignal>) -> Self {
+        let ans = BackendFactory {
+            handlers: Arc::new(Mutex::new(Vec::new())),
+        };
+        let handlers = ans.handlers.clone();
+        let client_count = AtomicIsize::new(0);
+        thread::spawn(move || {
+            while let Ok(signal) = status_rx.recv() {
+                unimplemented!("broadcast signal")
+            }
+        });
+        ans
+    }
+}
+
+impl ws::Factory for BackendFactory {
+
+    type Handler = BackendHandler;
+
+    fn connection_made(&mut self, ws_sender: ws::Sender) -> BackendHandler {
+        let ans = BackendHandler {
+            ws_sender,
+            client_addr: None,
+        };
+        self.handlers.lock().unwrap().push(ans.clone());
+        ans
+    }
+}
+
+#[derive(Clone)]
+struct BackendHandler {
+    ws_sender: ws::Sender,
+    client_addr: Option<String>,
+}
+
+impl ws::Handler for BackendHandler {
+    fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
+        if let Some(client_addr) = shake.remote_addr()? {
+            info!("新的后台 {} 已连接到服务器！", client_addr);
+            self.client_addr = Some(client_addr);
+        }
+        Ok(())
+    }
+
+    fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
+        if let Some(client_addr) = self.client_addr.as_ref() {
+            info!("后台 {} 断开了连接！代码：{:?}", client_addr, code);
+        }
+    }
+}
+
 fn main() -> ws::Result<()> {
     // 配置logger
     let mut builder = Builder::from_default_env();
@@ -148,26 +210,35 @@ fn main() -> ws::Result<()> {
         .target(Target::Stdout)
         .init();
     // 开启mpsc
-    let (tx, rx) = mpsc::channel();
-    // 1. 从客户端输入弹幕
+    let (tx_msg, rx_msg) = mpsc::channel();
+    let (tx_status, rx_status) = mpsc::channel();
+    // 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
     let addr = "0.0.0.0:1103";
     thread::spawn(move || {
-        let factory = InputFactory::new(tx);
+        let factory = InputFactory::new(tx_msg, tx_status);
         ws::WebSocket::new(factory).unwrap()
             .listen(addr).unwrap();
     });
     info!("DanmuRocket客户端监听已启动在 {}！", addr);
-    // 2. displayer使用的websocket服务器
+    // displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
     let addr = "0.0.0.0:11030";
     thread::spawn(move || {
-        let factory = OutputFactory::new(rx);
+        let factory = OutputFactory::new(rx_msg);
         ws::WebSocket::new(factory).unwrap()
             .listen(addr).unwrap();
     });
     info!("DanmuRocket显示模块已启动在 {}！", addr);
-    // 3. 读取控制台
+    // 后台后端
+    let addr = "0.0.0.0:11031";
+    thread::spawn(move || {
+        let factory = BackendFactory::new(rx_status);
+        ws::WebSocket::new(factory).unwrap()
+            .listen(addr).unwrap();
+    });
+    info!("DanmuRocket后台后端已启动在 {}！", addr);
+    // 读取控制台输入
     loop {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
@@ -181,3 +252,17 @@ fn main() -> ws::Result<()> {
     }
 
 }
+
+fn judge_msg(mut msg: String) -> bool {
+    msg = msg.replace(" ", "");
+    if
+        msg.contains("script") || 
+        msg.contains("&#115;&#99;&#114;&#105;&#112;&#116;") ||
+        msg.contains("&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;") ||
+        msg.contains("\\x73\\x63\\x72\\x69\\x70\\x74") 
+    {
+        return false;
+    } 
+    true
+}
+
