@@ -6,3 +6,5 @@ authors = ["luojia65 <me@luojia.cc>"]
 [dependencies]
 ws = "0.7.9"
 chrono = "0.4"
+log = "0.4.5"
+env_logger = "0.5.13"

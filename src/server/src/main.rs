@@ -1,17 +1,14 @@
 extern crate ws;
-extern crate chrono;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
+use log::LevelFilter;
+use env_logger::{Builder, Target};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 
-fn hms_string() -> String {
-    use chrono::prelude::*;
-    let now = Local::now();
-    format!("[{}]", now.format("%H:%M:%S"))
-}
-
-fn judge_msg(msg: String) -> bool {
-    let mut msg = msg;
+fn judge_msg(mut msg: String) -> bool {
     msg = msg.replace(" ", "");
     if
         msg.contains("script") || 
@@ -58,14 +55,14 @@ impl ws::Handler for InputHandler {
     fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
         if let Some(client_addr) = shake.remote_addr()? {
             self.client_addr = Some(client_addr.clone());
-            println!("{} 新的客户端 {} 已连接到服务器！", hms_string(), client_addr);
+            info!("新的客户端 {:?} 已连接到服务器！", client_addr);
         }
         Ok(())
     }
 
     fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
         if let Some(client_addr) = self.client_addr.clone() {
-            println!("{} 客户端 {} 断开了连接！代码：{:?}", hms_string(), client_addr, code);
+            info!("客户端 {} 断开了连接！代码：{:?}", client_addr, code);
         }
     }
 
@@ -74,13 +71,13 @@ impl ws::Handler for InputHandler {
             if judge_msg(text.clone()) {
                 self.tx.send(text.clone()).unwrap();
                 self.sender.send(ws::Message::Text(format!("You sent: {}", text.clone())))?;
-                if let Some(client_addr) = self.client_addr.clone() {
-                    println!("{} {} 发送了信息：{}", hms_string(), client_addr, text.clone());
+                if let Some(client_addr) = self.client_addr.as_ref() {
+                    info!("{} 发送了信息：{}", client_addr, text.clone());
                 }
             } else {
                 self.sender.send(ws::Message::Text(format!("Failed to send: {}", text.clone())))?;
-                if let Some(client_addr) = self.client_addr.clone() {
-                    println!("{} {} 发送的信息已被拦截：{}", hms_string(), client_addr, text.clone());
+                if let Some(client_addr) = self.client_addr.as_ref() {
+                    info!("{} 发送的信息已被拦截：{}", client_addr, text.clone());
                 }
             }
 	    } else {
@@ -131,20 +128,26 @@ struct OutputHandler {
 impl ws::Handler for OutputHandler {
     fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
         if let Some(client_addr) = shake.remote_addr()? {
-            self.client_addr = Some(client_addr.clone());
-            println!("{} 新的直播页 {} 已连接到服务器！", hms_string(), client_addr);
+            info!("新的直播页 {} 已连接到服务器！", client_addr);
+            self.client_addr = Some(client_addr);
         }
         Ok(())
     }
 
     fn on_close(&mut self, code: ws::CloseCode, _reason: &str) {
-        if let Some(client_addr) = self.client_addr.clone() {
-            println!("{} 直播页 {} 断开了连接！代码：{:?}", hms_string(), client_addr, code);
+        if let Some(client_addr) = self.client_addr.as_ref() {
+            info!("直播页 {} 断开了连接！代码：{:?}", client_addr, code);
         }
     }
 }
 
 fn main() -> ws::Result<()> {
+    // 配置logger
+    let mut builder = Builder::from_default_env();
+    builder.filter(None, LevelFilter::Info)
+        .target(Target::Stdout)
+        .init();
+    // 开启mpsc
     let (tx, rx) = mpsc::channel();
     // 1. 从客户端输入弹幕
     // 参会者提交弹幕后，前端通过websocket推送到此处
@@ -152,25 +155,25 @@ fn main() -> ws::Result<()> {
     thread::spawn(move || {
         let factory = InputFactory::new(tx);
         ws::WebSocket::new(factory).unwrap()
-            .listen(addr.clone()).unwrap();
+            .listen(addr).unwrap();
     });
-    println!("{} DanmuRocket客户端监听已启动在 {}！", hms_string(), addr.clone());
+    info!("DanmuRocket客户端监听已启动在 {}！", addr);
     // 2. displayer使用的websocket服务器
     // 将弹幕数据推送到displayer前端
     let addr = "0.0.0.0:11030";
     thread::spawn(move || {
         let factory = OutputFactory::new(rx);
         ws::WebSocket::new(factory).unwrap()
-            .listen(addr.clone()).unwrap();
+            .listen(addr).unwrap();
     });
-    println!("{} DanmuRocket显示模块已启动在 {}！", hms_string(), addr.clone());
+    info!("DanmuRocket显示模块已启动在 {}！", addr);
     // 3. 读取控制台
     loop {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
         match input.trim() {
             "q" => {    
-                println!("{} 正在手动停止DanmuRocket...", hms_string());
+                info!("正在手动停止DanmuRocket...",);
                 std::process::exit(0);
             },
             _ => {}
