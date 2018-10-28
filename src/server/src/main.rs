@@ -98,13 +98,13 @@ struct OutputFactory {
 }
 
 impl OutputFactory {
-    fn new(rx: mpsc::Receiver<String>) -> Self {
+    fn new(rx_msg: mpsc::Receiver<String>) -> Self {
         let ans = OutputFactory {
             handlers: Arc::new(Mutex::new(Vec::new()))
         };
         let handlers = ans.handlers.clone();
         thread::spawn(move || {
-            while let Ok(msg) = rx.recv() {
+            while let Ok(msg) = rx_msg.recv() {
                 for handler in &*handlers.lock().unwrap() {
                     handler.ws_sender.send(ws::Message::Text(msg.clone())).unwrap();
                 }
@@ -119,7 +119,7 @@ impl ws::Factory for OutputFactory {
     type Handler = OutputHandler;
 
     fn connection_made(&mut self, ws_sender: ws::Sender) -> OutputHandler {
-        let ans = OutputHandler { ws_sender, client_addr: None };
+        let ans = OutputHandler { ws_sender, client_addr: None, family: self.handlers.clone() };
         self.handlers.lock().unwrap().push(ans.clone());
         ans
     }
@@ -129,6 +129,7 @@ impl ws::Factory for OutputFactory {
 struct OutputHandler {
     ws_sender: ws::Sender,
     client_addr: Option<String>,
+    family: Arc<Mutex<Vec<OutputHandler>>>,
 }
 
 impl ws::Handler for OutputHandler {
@@ -152,15 +153,15 @@ struct BackendFactory {
 }
 
 impl BackendFactory {
-    fn new(status_rx: mpsc::Receiver<StatusSignal>) -> Self {
+    fn new(rx_status: mpsc::Receiver<StatusSignal>) -> Self {
         let ans = BackendFactory {
             handlers: Arc::new(Mutex::new(Vec::new())),
         };
         let handlers = ans.handlers.clone();
         let client_count = AtomicIsize::new(0);
         thread::spawn(move || {
-            while let Ok(signal) = status_rx.recv() {
-                unimplemented!("broadcast signal")
+            while let Ok(signal) = rx_status.recv() {
+                // unimplemented!("broadcast signal")
             }
         });
         ans
