@@ -54,18 +54,10 @@ Cargo.lock
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+## IDE
 
-
-/.vscode/
-/.idea/
-/.vs/
-/src/displayer-windows/bin
-/src/displayer-windows/obj
+**/.vscode/
+**/.idea/
+**/.vs/
+**/bin/
+**/obj/
