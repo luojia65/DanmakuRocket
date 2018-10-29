@@ -1,0 +1,11 @@
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\bin\Debug\DanmuDisplayer.exe.config
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\bin\Debug\DanmuDisplayer.exe
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\bin\Debug\DanmuDisplayer.pdb
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.csprojAssemblyReference.cache
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.Properties.Resources.resources
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.csproj.GenerateResource.cache
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.csproj.CoreCompileInputs.cache
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.exe
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.pdb
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.MainForm.resources
+C:\Users\luojia\Source\Repos\DanmuDisplayer\DanmuDisplayer\obj\Debug\DanmuDisplayer.MessageForm.resources
