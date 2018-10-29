@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using DanmuDisplayerWin;
 using WebSocketSharp;
 
 namespace DanmuDisplayer
@@ -26,7 +27,7 @@ namespace DanmuDisplayer
                 return;
             }
 
-            var form = new MessageForm(msg);
+            var form = new DanmakuForm(msg);
             form.Show();
         }
 

@@ -20,6 +20,10 @@ namespace DanmuDisplayer
             this.msg = msg;
             InitializeComponent();
         }
+
+        public string text { get; set; }
+        public Font font { get; set; }
+
         
         private void MainForm_Load(object sender, EventArgs e)
         {
@@ -39,6 +43,16 @@ namespace DanmuDisplayer
             {
                 Close();
             }
+        }
+
+        private void shadowLabel1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void LabelMessage_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

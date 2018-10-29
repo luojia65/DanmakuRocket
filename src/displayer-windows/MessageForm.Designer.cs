@@ -43,6 +43,7 @@
             this.LabelMessage.Size = new System.Drawing.Size(310, 69);
             this.LabelMessage.TabIndex = 2;
             this.LabelMessage.Text = "测试弹幕";
+            this.LabelMessage.Click += new System.EventHandler(this.LabelMessage_Click);
             // 
             // Ticker
             // 
@@ -50,13 +51,13 @@
             this.Ticker.Interval = 10;
             this.Ticker.Tick += new System.EventHandler(this.Ticker_Tick);
             // 
-            // MainForm
+            // MessageForm
             // 
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(233)))), ((int)(((byte)(233)))), ((int)(((byte)(233)))));
             this.ClientSize = new System.Drawing.Size(1020, 622);
             this.Controls.Add(this.LabelMessage);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.Name = "MainForm";
+            this.Name = "MessageForm";
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
